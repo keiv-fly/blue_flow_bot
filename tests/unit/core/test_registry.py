@@ -61,18 +61,18 @@ async def test_get_unknown_raises_unknownstate():
     [
         # 1) Missing required 'type' key → schema validation error
         (
-            {"0": {"node_text": "Hi"}},
+            {0: {"node_text": "Hi"}},
             FlowValidationError,
         ),
         # 2) Unknown node 'type' → UnknownStateTypeError
         (
-            {"0": {"type": "nope", "node_text": "Oops"}},
+            {0: {"type": "nope", "node_text": "Oops"}},
             UnknownStateTypeError,
         ),
         # 3) Dangling reference in 'next' → DanglingReferenceError
         (
             {
-                "0": {
+                0: {
                     "type": "text",
                     "node_text": "Say something",
                     "next": 1,
@@ -85,7 +85,7 @@ async def test_get_unknown_raises_unknownstate():
         # 4) Choice node missing 'choices' key → NodeSchemaError
         (
             {
-                "0": {
+                0: {
                     "type": "choice",
                     "node_text": "Pick one",
                     # 'choices' is required for choice nodes
@@ -103,3 +103,40 @@ async def test_validate_flow_error_paths(bad_flow, expected_exc):
     registry = StateRegistry()
     with pytest.raises(expected_exc):
         await registry.validate_flow(bad_flow)
+
+
+@pytest.mark.asyncio
+async def test_validate_flow_valid_three_nodes():
+    """
+    A flow with 3 valid nodes should pass validation.
+    """
+    registry = StateRegistry()
+
+    # Register required state types
+    await registry.register_alias("text", DummyState)
+    await registry.register_alias("choice", DummyState)
+
+    valid_flow = {
+        0: {
+            "type": "text",
+            "node_text": "Welcome to the flow",
+            "next": 1,
+            "key_to_save": "welcome_message",
+            "min_words": 1,
+        },
+        1: {
+            "type": "choice",
+            "node_text": "Choose an option",
+            "choices": ["Option A", "Option B"],
+            "next_for_choice": {"Option A": 2, "Option B": 2},
+        },
+        2: {
+            "type": "text",
+            "node_text": "Thank you for your choice",
+            "key_to_save": "final_message",
+            "min_words": 1,
+        },
+    }
+
+    # This should not raise any exceptions
+    await registry.validate_flow(valid_flow)
